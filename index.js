@@ -37,6 +37,7 @@ app.get('/', (req, res) => {
   res.send('Hola!!!');
 });
 
+// Listo
 app.post('/generate-qr', async (req, res) => {
   // const { appName, email } = req.body;
   let { appName, email } = req.body;
@@ -61,7 +62,7 @@ app.post('/generate-qr', async (req, res) => {
   });
 
   try {
-    // Buscar si ya existe un registro con el mismo appName y email
+    // Busco si ya existe un registro con el mismo appName y email
     const existingRecord = await collection.findOne({ appName, email });
 
     if (existingRecord) {
@@ -109,32 +110,69 @@ app.post('/generate-qr', async (req, res) => {
   }
 });
 
-app.post('/verify-totp', (req, res) => {
-  const { token } = req.body;
+// Listo
+app.post('/verify-totp', async (req, res) => {
+  const { token, appName, email } = req.body;
 
-  if (!secret) {
-    return res.status(400).send('Secret no definido. Generar QR primero.');
+  if (!appName || !email) {
+    return res.status(400).send('appName y email son requeridos.');
   }
 
-  const verified = speakeasy.totp.verify({
-    secret: secret.base32,
-    encoding: 'base32',
-    token: token
-  });
+  try {
+    const db = client.db(dbName);
+    const collection = db.collection(collectionName);
 
-  if (verified) {
-    res.send('🤙🏼🤙🏼🤙🏼🤙🏼');
-  } else {
-    res.status(400).send('👎🏼👎🏼👎🏼👎🏼');
+    // Buscar el secret en la base de datos
+    const record = await collection.findOne({ appName, email });
+
+    if (!record) {
+      return res.status(400).send('No se encontró ningún registro para la appName y email proporcionados.');
+    }
+
+    const verified = speakeasy.totp.verify({
+      secret: record.secret,
+      encoding: 'base32',
+      token: token
+    });
+
+    if (verified) {
+      res.send('🤙🏼🤙🏼🤙🏼🤙🏼');
+    } else {
+      res.status(400).send('👎🏼👎🏼👎🏼👎🏼');
+    }
+  } catch (err) {
+    console.error("Error al verificar TOTP:", err);
+    res.status(500).send('Error al verificar TOTP.');
   }
 });
 
-app.get('/generate-totp', (req, res) => {
-  if (!secret) {
-    return res.status(400).send('Secret no definido. Generar QR primero.');
+// Listo
+app.get('/generate-totp', async (req, res) => {
+  let { appName, email } = req.query;
+  appName = "UnaApp";
+  email = "latitargaming@gmail.com";
+
+  if (!appName || !email) {
+    return res.status(400).send('appName y email son requeridos.');
   }
-  const token = speakeasy.totp({ secret: secret.base32, encoding: 'base32' });
-  res.json({ token });
+
+  try {
+    const db = client.db(dbName);
+    const collection = db.collection(collectionName);
+
+    // Buscar el secret en la base de datos
+    const record = await collection.findOne({ appName, email });
+
+    if (!record) {
+      return res.status(400).send('No se encontró ningún registro para la appName y email proporcionados.');
+    }
+
+    const token = speakeasy.totp({ secret: record.secret, encoding: 'base32' });
+    res.json({ token });
+  } catch (err) {
+    console.error("Error al generar TOTP:", err);
+    res.status(500).send('Error al generar TOTP.');
+  }
 });
 
 
