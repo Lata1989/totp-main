@@ -39,11 +39,7 @@ app.get('/', (req, res) => {
 
 // Listo
 app.post('/generate-qr', async (req, res) => {
-  // const { appName, email } = req.body;
-  let { appName, email } = req.body;
-
-  appName = "UnaApp";
-  email = "latitargaming@gmail.com";
+  const { appName, email } = req.body;
 
   if (!appName || !email) {
     return res.status(400).json({ error: "AppName y email son requeridos." });
@@ -126,7 +122,7 @@ app.post('/verify-totp', async (req, res) => {
     const record = await collection.findOne({ appName, email });
 
     if (!record) {
-      return res.status(400).send('No se encontró ningún registro para la appName y email proporcionados.');
+      return res.status(400).send('No se encontró ningún registro para la appName y email ingresados.');
     }
 
     const verified = speakeasy.totp.verify({
@@ -146,11 +142,9 @@ app.post('/verify-totp', async (req, res) => {
   }
 });
 
-// Listo
-app.get('/generate-totp', async (req, res) => {
+// Incompleto
+app.get('/mostrar-imagenqr', async (req, res) => {
   let { appName, email } = req.query;
-  appName = "UnaApp";
-  email = "latitargaming@gmail.com";
 
   if (!appName || !email) {
     return res.status(400).send('appName y email son requeridos.');
@@ -175,6 +169,31 @@ app.get('/generate-totp', async (req, res) => {
   }
 });
 
+app.get('/generate-totp', async (req, res) => {
+  let { appName, email } = req.query;
+
+  if (!appName || !email) {
+    return res.status(400).send('appName y email son requeridos.');
+  }
+
+  try {
+    const db = client.db(dbName);
+    const collection = db.collection(collectionName);
+
+    // Buscar el secret en la base de datos
+    const record = await collection.findOne({ appName, email });
+
+    if (!record) {
+      return res.status(400).send('No se encontró ningún registro para la appName y email proporcionados.');
+    }
+
+    const token = speakeasy.totp({ secret: record.secret, encoding: 'base32' });
+    res.json({ token });
+  } catch (err) {
+    console.error("Error al generar TOTP:", err);
+    res.status(500).send('Error al generar TOTP.');
+  }
+});
 
 /*
 let secret;
